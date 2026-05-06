@@ -205,7 +205,7 @@ local function rollForAura()
     waitForChoice()
 
     --// QuickRoll remote check
-    if QuickRoll and math.random(1, 100) == 1 then
+    if QuickRoll and math.random(100) == 1 then
         if not script.ClientChecks:InvokeServer("GRCD") then
             game.Players.LocalPlayer:Kick("(Quickroll Not Found) An Error Occured")
         end
@@ -234,10 +234,9 @@ end
 UI.QuickRoll.MouseButton1Click:Connect(function()
     UISounds.gui_click:Play()
     local QR = script.ClientChecks:InvokeServer("GRCD")
-    if QR == true then
+    if QR  then
         QuickRoll = not QuickRoll
-        if QuickRoll == true then
-
+        if QuickRoll  then
             UI.QuickRoll.Text = "QuickRoll : On"
         else
             UI.QuickRoll.Text = "QuickRoll : Off"
@@ -253,9 +252,9 @@ UI.Roll.MouseButton1Click:Connect(rollForAura)
 
 UI.AutoRoll.MouseButton1Click:Connect(function()
     AutoRoll = not AutoRoll
-    if AutoRoll == true then
+    if AutoRoll  then
         UI.AutoRoll.Text = "AutoRoll : On"
-        while AutoRoll == true do
+        while AutoRoll do
             rollForAura()
             task.wait(.02)
         end
