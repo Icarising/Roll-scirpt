@@ -1,6 +1,10 @@
-repeat task.wait() until game:IsLoaded()
+repeat task.wait() until game:IsLoaded() --//wait till game loaded
 
 --// whole bunch of variables yes
+--[[
+Just defining basic variables like replicated storage, UI objects, dependacy modules, etc.
+]]
+
 local TS = game:GetService("TweenService")
 local Rep = game:GetService("ReplicatedStorage")
 local UISounds = workspace:WaitForChild("UISounds")
@@ -33,6 +37,12 @@ local playCutscene = PSettings:FindFirstChild("PlayCutscene")
 local Rolling = false
 
 local function GetAuraGradientColor(AuraName)
+    --[[
+    Look for the gradient color of a specific aura
+    Default to a common color if there is none found, 
+    If found return the gradient color inside the ChanceGUI
+    ]]
+
     local Auras = Rep:WaitForChild("Auras")
     local GradientColor = ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255, 0, 4)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255, 0, 4))})
 
@@ -48,11 +58,15 @@ local function GetAuraGradientColor(AuraName)
 end
 
 local function Warn(Type,Aura)
+    --[[
+    Function to show a warning depending on if a player is going to equip/skip an aura
+    ]]
+    
     if Type == "Skip" then
         WarningUI.Keep.Text = "Don't Skip"
         WarningUI.Remov.Text = "Skip"
         WarningUI["DAWG?"].Text = "Are you sure you want to skip this "..tostring(Aura).." aura?"
-        WarningUI.Deleting.Text = "Skipping : "..tostring(Aura)
+        WarningUI.Deleting.Text = "Skipping : "..tostring(Aura) 
         WarningUI.UIGradient.Color = GetAuraGradientColor(Aura) or ColorSequence.new({ColorSequenceKeypoint.new(0,Color3.fromRGB(255, 255, 255)),ColorSequenceKeypoint.new(1,Color3.fromRGB(255, 255, 255))})
         WarningUI.Visible = true
     else
@@ -66,22 +80,22 @@ local function Warn(Type,Aura)
 end
 
 local function fakeroll()
-    local fake,fake2 = SummonMod.Roll(plr)
+    local fake,fake2 = SummonMod.Roll(plr) --// get a random aura from the all the auras in the game, its name and chance
     return fake,fake2
 end;
 
 local function ShowAura(AuraName,Chance,Speed)
     local RUI = UI.Rolling
-    local PSI = RUI.PSI
+    local PSI = RUI.PSI --// current aura shown
 
-    local RollSound = UISounds:WaitForChild("Cutscenes").Roll:Clone()
+    local RollSound = UISounds:WaitForChild("Cutscenes").Roll:Clone() --// play roll sound
     RollSound.Parent = workspace
     RollSound.PlaybackSpeed = Speed
     RollSound:Play()
 
     game.Debris:AddItem(RollSound,.5)
 
-    local GradientColor = GetAuraGradientColor(AuraName)
+    local GradientColor = GetAuraGradientColor(AuraName) --// show gradient color, aura chance,color,etc
     PSI.AuraName.Text = AuraName
     PSI.Chance.Text = "1 in "..tostring(Chance)
     PSI.AuraName.UIGradient.Color = GradientColor
@@ -89,9 +103,9 @@ local function ShowAura(AuraName,Chance,Speed)
     PSI.Size = UDim2.new(.5,0,.376,0)
     PSI.Position = UDim2.new(.25,0,.25,0)
 
-    TS:Create(PSI,TweenInfo.new(.125/Speed,Enum.EasingStyle.Sine),{Size = UDim2.new(.5,0,0.484,0);Position = UDim2.new(.25,0,.25,0)}):Play()
+    TS:Create(PSI,TweenInfo.new(.125/Speed,Enum.EasingStyle.Sine),{Size = UDim2.new(.5,0,0.484,0);Position = UDim2.new(.25,0,.25,0)}):Play() --// play small animation
 
-    task.wait(.14/Speed)
+    task.wait(.14/Speed) --// wait a bit extra
 
 end
 
@@ -110,7 +124,7 @@ local function rollForAura()
     local Speed = 1
     local RollCooldown = 1
 
-    --// Adjust speed and cooldown based on potions
+    --// Adjust roll speed and roll cooldown based on potion effects
     local potions = {"Speed Potion I", "Speed Potion II", "Speed Potion III"}
     local potionEffects = {0.15, 0.35, 0.5}
     local potionCooldowns = {0.15, 0.34, 0.5}
@@ -124,24 +138,25 @@ local function rollForAura()
     --// Gear effects
     local gval = Players.LocalPlayer:WaitForChild("gear").Value
     local gearSpeedMap = {["None"] = 0.05, ["Flare Gear"] = 0.15, ["Starry Device"] = 4.44}
-    Speed += gearSpeedMap[gval] or 0
+    Speed += gearSpeedMap[gval] or 0 --// roll speed increases depending on device equiped
 
     Buttons.Visible = true
-    Roll.BackgroundTransparency = (RollCooldown < 0.1 and AutoRoll) and 1 or 0.5
+    Roll.BackgroundTransparency = (RollCooldown < 0.1 and AutoRoll) and 1 or 0.5 --// how dark the transparency is based on roll cd and autoroll
 
-    if not QuickRoll then
+    if not QuickRoll then --// if they dont have the gamepass show 8 fake rolls
         for i = 1, 8 do
             local Aura, Chance = fakeroll()
             ShowAura(Aura, Chance, Speed)
         end
     end
 
-    local ActualThing, Chance = script.ClientChecks:InvokeServer("GetRoll")
+    local ActualThing, Chance = script.ClientChecks:InvokeServer("GetRoll") --// what the player actually rolled
     ShowAura(ActualThing, Chance, Speed)
 
     --// handle aura warnings, equipping, skipping, etc
 
     local function handleWarnings(Type)
+        --// check if the players inventory is full, whether they want to skip it or not depending on settings,etc 
         local inventoryFull = plr.Junk.CurrentValue.Value >= plr.Junk.MaxValue.Value
         if Type == "Skip" and skipWarning.Value < tonumber(Chance) then
             Warn("Skip", ActualThing)
@@ -154,15 +169,19 @@ local function rollForAura()
     end
 
     local function EquipAura()
+        --// see if the player can equip the aura
+        --// check if the aura value is higher/equal to the value the player wants
         if plr.Junk.CurrentValue.Value >= plr.Junk.MaxValue.Value then
             local Equip, _ = handleWarnings()
-            if not Equip then return false end
+            if not Equip then return false end 
         end
         script.ClientChecks:InvokeServer("EquipThing")
         return true
     end
 
     local function SkipAura()
+        --// skip the aura if the chance isn't high enough for the skip warning
+        --// otherise shown skip warning
         if tonumber(skipWarning.Value) < tonumber(Chance) then
             local _, Skip = handleWarnings("Skip")
             if not Skip then return false end
@@ -173,7 +192,8 @@ local function rollForAura()
     local function waitForChoice()
         Wclicked, Lclicked = false, false
         local choiceMade = false
-
+        --// see if player wants to equip the aura/skip it
+        
         local function connectButton(btn, func)
             local conn
             conn = btn.MouseButton1Click:Connect(function()
@@ -212,7 +232,7 @@ local function rollForAura()
     end
 
     --// Reset UI
-    if UI.Enabled then
+    if UI.Enabled then --// reset ui for the next time the player rolls
         for _, v in pairs(script.Parent:GetChildren()) do
             if v:IsA("TextButton") then v.Visible = true end
         end
@@ -224,16 +244,16 @@ local function rollForAura()
         F.BackgroundTransparency = 0.5
         F.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
         TS:Create(F, TweenInfo.new(RollCooldown), {Size = UDim2.new(0, 0, 1, 0)}):Play()
-        game.Debris:AddItem(F, RollCooldown)
+        game.Debris:AddItem(F, RollCooldown) --// roll cooldown with tween and get rid of it once its down
     end
 
-    task.delay(RollCooldown, function() Rolling = false end)
+    task.delay(RollCooldown, function() Rolling = false end) --// lets the player roll again once done
 end
 
 
-UI.QuickRoll.MouseButton1Click:Connect(function()
+UI.QuickRoll.MouseButton1Click:Connect(function() --// activates quick roll
     UISounds.gui_click:Play()
-    local QR = script.ClientChecks:InvokeServer("GRCD")
+    local QR = script.ClientChecks:InvokeServer("GRCD") --// gamepass check
     if QR  then
         QuickRoll = not QuickRoll
         if QuickRoll  then
@@ -244,17 +264,17 @@ UI.QuickRoll.MouseButton1Click:Connect(function()
 
         UISounds.Success_Sound:Play()
     else
-        UISounds["error-WINDOWS XP"]:Play()
+        UISounds["error-WINDOWS XP"]:Play() --// they need the gamepass
     end
 end)
 
 UI.Roll.MouseButton1Click:Connect(rollForAura)
 
-UI.AutoRoll.MouseButton1Click:Connect(function()
+UI.AutoRoll.MouseButton1Click:Connect(function() --// turns on autroll
     AutoRoll = not AutoRoll
     if AutoRoll  then
         UI.AutoRoll.Text = "AutoRoll : On"
-        while AutoRoll do
+        while AutoRoll do --// if on then keep rolling
             rollForAura()
             task.wait(.02)
         end
@@ -263,5 +283,5 @@ UI.AutoRoll.MouseButton1Click:Connect(function()
     end
 end)
 
-UI.Rolling.Warning.Keep.MouseButton1Click:Connect(function()	UISounds.gui_click:Play()	Wclicked = true end)
-UI.Rolling.Warning.Remov.MouseButton1Click:Connect(function() UISounds.gui_click:Play()    Lclicked = true end)	
+UI.Rolling.Warning.Keep.MouseButton1Click:Connect(function()	UISounds.gui_click:Play()	Wclicked = true end) --// keep aura
+UI.Rolling.Warning.Remov.MouseButton1Click:Connect(function() UISounds.gui_click:Play()    Lclicked = true end)	 --// rid aura
