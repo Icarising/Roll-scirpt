@@ -107,39 +107,33 @@ end
 local function BuildAuraCache()
 
 	local AuraFolder = ReplicatedStorage:WaitForChild("Auras")
-
+	
 	for _, Aura in AuraFolder:GetChildren() do
-
 		if Aura:FindFirstChild("HeadUI") then
-
-			AuraCache[Aura.Name] =
-				Aura.HeadUI.Chance.UIGradient.Color
+			AuraCache[Aura.Name] = Aura.HeadUI.Chance.UIGradient.Color
 		end
 	end
+	
 end
 
 BuildAuraCache()
 
 --// gets aura ui gradient
 local function GetAuraGradient(AuraName)
-
 	return AuraCache[AuraName] or DefaultGradient
 end
 
 --// calculates total roll speed
 local function GetRollSpeed()
-
 	local Speed = BaseSpeed
-
+	
 	for PotionName, Boost in PotBoosts do
-
 		if EffectsFolder:FindFirstChild(PotionName) then
 			Speed += Boost
 		end
 	end
 
 	local EquippedGear = plr:WaitForChild("gear").Value
-
 	Speed += GearBoosts[EquippedGear] or 0
 
 	return Speed
@@ -147,7 +141,6 @@ end
 
 --// plays rolling sound effect
 local function PlayRollSound(Speed)
-
 	local RollSound = UISounds.Cutscenes.Roll:Clone()
 
 	RollSound.Parent = workspace
@@ -196,7 +189,6 @@ local function CreateCooldownVisual()
 	)
 
 	Tween.Completed:Wait()
-
 	CooldownFrame:Destroy()
 end
 
@@ -211,26 +203,20 @@ local function OpenWarning(Type, AuraName)
 	WarningUI.UIGradient.Color = Gradient
 
 	if Type == "Skip" then
-
 		WarningUI.Keep.Text = "Keep"
 		WarningUI.Remov.Text = "Skip"
 
-		WarningUI["DAWG?"].Text =
-			`Skip {AuraName}?`
-
+		WarningUI["DAWG?"].Text = `Skip {AuraName}?`
 	else
-
 		WarningUI.Keep.Text = "Equip"
 		WarningUI.Remov.Text = "Don't Equip"
 
-		WarningUI["DAWG?"].Text =
-			"Inventory Full"
+		WarningUI["DAWG?"].Text = "Inventory Full"
 	end
 end
 
 --// closes warning ui
 local function CloseWarning()
-
 	WarningOpen = false
 	WarningUI.Visible = false
 end
@@ -304,8 +290,8 @@ local function RollAura()
 	local AuraName, AuraChance = ClientChecks:InvokeServer("GetRoll")
 	ShowAura(AuraName, AuraChance, Speed)
 
-	--// random quickroll ownership verification
-	if QuickRoll and math.random(1,100) == 1 then
+	--// random quickroll ownership verification to see if they acc own it
+	if QuickRoll and math.random(670) == 1 then
 		local Valid = ClientChecks:InvokeServer("GRCD")
 
 		if not Valid then
@@ -361,19 +347,17 @@ PlayerGui.QuickRoll.MouseButton1Click:Connect(function()
 	end
 
 	QuickRoll = not QuickRoll
-
-	PlayerGui.QuickRoll.Text =	QuickRoll and "QuickRoll : On"		or "QuickRoll : Off"
-
+	PlayerGui.QuickRoll.Text =	QuickRoll and "QuickRoll : On"	or "QuickRoll : Off"
 	UISounds.Success_Sound:Play()
 end)
 
 PlayerGui.AutoRoll.MouseButton1Click:Connect(function()
 
-	if Rolling then
+	if Rolling then --// if they are alaredy rolling then  turn cant autorl on
 		return
 	end
 
-	AutoRoll = not AutoRoll
+	AutoRoll = not AutoRoll --// if on off if off on
 
 	PlayerGui.AutoRoll.Text =	AutoRoll and "AutoRoll : On"	or "AutoRoll : Off"
 
@@ -382,12 +366,10 @@ PlayerGui.AutoRoll.MouseButton1Click:Connect(function()
 	end
 
 	task.spawn(function()
-
 		while AutoRoll do
 
-			local Success, Error = pcall(function()
-
-				RollAura()
+			local Success, Error = pcall(function() --// if this function fails for whatever reason
+				RollAura()  
 			end)
 
 			if not Success then
