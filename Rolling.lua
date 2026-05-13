@@ -24,7 +24,6 @@ local AuraDisplay = RollingUI:WaitForChild("PSI")
 ----------- [ Modules ] ----------------
 
 local ClientModules = ReplicatedStorage:WaitForChild("ClientModules")
-
 local SummonModule = require(ClientModules:WaitForChild("Summon"))
 local AuraDetails = require(ClientModules:WaitForChild("AuraDetails"))
 
