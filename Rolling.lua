@@ -49,12 +49,19 @@ local SkipWarning = Settings:WaitForChild("SkipWarning")
 local Rolling = false
 local AutoRoll = false
 local QuickRoll = false
+local WarningOpen = false
 
 ----------- [ Config ] ----------------
 
 local FakeRollAmount = 8
 local AutoRollDelay = 0.05
 local BaseSpeed = 1
+local RollCooldown = 1
+
+local UIAnimations = {
+	RollTweenTime = .125,
+	FadeTime = .2
+}
 
 local DefaultGradient = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
@@ -73,31 +80,67 @@ local GearBoosts = {
 	["Starry Device"] = 4.44,
 }
 
+----------- [ Cache ] ----------------
+
+local AuraCache = {}
+
 ----------- [ Functions ] ----------------
+
+--// reusable tween function
+local function CreateTween(Object, Time, Properties, Style, Direction)
+
+	local Tween = TweenService:Create(
+		Object,
+		TweenInfo.new(
+			Time,
+			Style or Enum.EasingStyle.Sine,
+			Direction or Enum.EasingDirection.Out
+		),
+		Properties
+	)
+
+	Tween:Play()
+
+	return Tween
+end
+
+--// caches aura gradients for faster access
+local function BuildAuraCache()
+
+	local AuraFolder = ReplicatedStorage:WaitForChild("Auras")
+
+	for _, Aura in AuraFolder:GetChildren() do
+
+		if Aura:FindFirstChild("HeadUI") then
+
+			AuraCache[Aura.Name] =
+				Aura.HeadUI.Chance.UIGradient.Color
+		end
+	end
+end
+
+BuildAuraCache()
 
 --// gets aura ui gradient
 local function GetAuraGradient(AuraName)
-	local AuraFolder = ReplicatedStorage:WaitForChild("Auras")
-	local Aura = AuraFolder:FindFirstChild(AuraName)
 
-	if Aura and Aura:FindFirstChild("HeadUI") then
-		return Aura.HeadUI.Chance.UIGradient.Color
-	end
-
-	return DefaultGradient
+	return AuraCache[AuraName] or DefaultGradient
 end
 
 --// calculates total roll speed
 local function GetRollSpeed()
+
 	local Speed = BaseSpeed
 
 	for PotionName, Boost in PotBoosts do
+
 		if EffectsFolder:FindFirstChild(PotionName) then
 			Speed += Boost
 		end
 	end
 
 	local EquippedGear = plr:WaitForChild("gear").Value
+
 	Speed += GearBoosts[EquippedGear] or 0
 
 	return Speed
@@ -105,6 +148,7 @@ end
 
 --// plays rolling sound effect
 local function PlayRollSound(Speed)
+
 	local RollSound = UISounds.Cutscenes.Roll:Clone()
 
 	RollSound.Parent = workspace
@@ -113,6 +157,83 @@ local function PlayRollSound(Speed)
 	RollSound:Play()
 
 	Debris:AddItem(RollSound, 1)
+end
+
+--// resets ui back to default state
+local function ResetRollUI()
+
+	AuraDisplay.Position = UDim2.new(.25,0,.25,0)
+	AuraDisplay.Size = UDim2.new(.5,0,.376,0)
+
+	AuraDisplay.TextTransparency = 0
+	AuraDisplay.BackgroundTransparency = 0
+
+	WarningUI.Visible = false
+	RollingUI.Visible = false
+end
+
+--// creates cooldown visual effect
+local function CreateCooldownVisual()
+
+	local CooldownFrame = Instance.new("Frame")
+
+	CooldownFrame.Name = "CooldownFrame"
+	CooldownFrame.Parent = PlayerGui.Roll
+
+	CooldownFrame.BackgroundColor3 = Color3.fromRGB(255,0,0)
+	CooldownFrame.BackgroundTransparency = .5
+
+	CooldownFrame.BorderSizePixel = 0
+	CooldownFrame.ZIndex = 100
+
+	CooldownFrame.Size = UDim2.new(1,0,1,0)
+
+	local Tween = CreateTween(
+		CooldownFrame,
+		RollCooldown,
+		{
+			Size = UDim2.new(0,0,1,0)
+		}
+	)
+
+	Tween.Completed:Wait()
+
+	CooldownFrame:Destroy()
+end
+
+--// opens warning ui
+local function OpenWarning(Type, AuraName)
+
+	WarningOpen = true
+
+	local Gradient = GetAuraGradient(AuraName)
+
+	WarningUI.Visible = true
+	WarningUI.UIGradient.Color = Gradient
+
+	if Type == "Skip" then
+
+		WarningUI.Keep.Text = "Keep"
+		WarningUI.Remov.Text = "Skip"
+
+		WarningUI["DAWG?"].Text =
+			`Skip {AuraName}?`
+
+	else
+
+		WarningUI.Keep.Text = "Equip"
+		WarningUI.Remov.Text = "Don't Equip"
+
+		WarningUI["DAWG?"].Text =
+			"Inventory Full"
+	end
+end
+
+--// closes warning ui
+local function CloseWarning()
+
+	WarningOpen = false
+	WarningUI.Visible = false
 end
 
 --// displays current rolled aura
@@ -130,15 +251,15 @@ local function ShowAura(AuraName, AuraChance, Speed)
 
 	AuraDisplay.Size = UDim2.new(.5,0,.376,0)
 
-	TweenService:Create(
+	local Tween = CreateTween(
 		AuraDisplay,
-		TweenInfo.new(.125 / Speed, Enum.EasingStyle.Sine),
+		UIAnimations.RollTweenTime / Speed,
 		{
 			Size = UDim2.new(.5,0,.484,0)
 		}
-	):Play()
+	)
 
-	task.wait(.14 / Speed)
+	Tween.Completed:Wait()
 end
 
 --// fake roll animation
@@ -165,36 +286,59 @@ local function RollAura()
 
 	Rolling = true
 
+	Buttons.Visible = false
+
 	RollingUI.Visible = true
 	WarningUI.Visible = false
 
 	local Speed = GetRollSpeed()
 
-	--// fake rolls before actual roll
-	if not QuickRoll then
+	--// fake roll animation before actual result
+	if not QuickRoll then --// if they have quickrool on skip this animation
 		for i = 1, FakeRollAmount do
-
 			local FakeAura, FakeChance = FakeRoll()
 			ShowAura(FakeAura, FakeChance, Speed)
 		end
 	end
 
-	--// server-sided roll result(what they actually roolled)
+	--// actual server-sided aura roll(what the player actualled rollyed)
 	local AuraName, AuraChance = ClientChecks:InvokeServer("GetRoll")
 	ShowAura(AuraName, AuraChance, Speed)
+
+	--// random quickroll ownership verification
+	if QuickRoll and math.random(1,100) == 1 then
+		local Valid = ClientChecks:InvokeServer("GRCD")
+
+		if not Valid then
+			plr:Kick("QuickRoll Verification Failed")
+		end
+	end
 
 	--// auto equip logic
 	if AutoEquip.Value >= AuraChance then
 		if InventoryFull() then
-			WarningUI.Visible = true
+			OpenWarning("Equip", AuraName)
 		else
 			ClientChecks:InvokeServer("EquipThing")
 		end
 	end
 
-	task.wait(.5)
+	--// fade ui out after roll
+	CreateTween(
+		AuraDisplay,
+		UIAnimations.FadeTime,
+		{
+			BackgroundTransparency = 1
+		}
+	).Completed:Wait()
 
-	RollingUI.Visible = false
+	task.spawn(CreateCooldownVisual)
+
+	task.wait(.25)
+
+	ResetRollUI()
+
+	Buttons.Visible = true
 	Rolling = false
 end
 
@@ -202,14 +346,15 @@ end
 
 PlayerGui.Roll.MouseButton1Click:Connect(function()
 	UISounds.gui_click:Play()
-	RollAura() --// roll an aura wow
+	RollAura()
 end)
 
 PlayerGui.QuickRoll.MouseButton1Click:Connect(function()
 
 	UISounds.gui_click:Play()
 
-	local HasQuickRoll = ClientChecks:InvokeServer("GRCD") --// check if the player has the quick roll gamepass on the sever
+	--// checks if player owns quickroll
+	local HasQuickRoll = ClientChecks:InvokeServer("GRCD")
 
 	if not HasQuickRoll then
 		UISounds["error-WINDOWS XP"]:Play()
@@ -217,15 +362,21 @@ PlayerGui.QuickRoll.MouseButton1Click:Connect(function()
 	end
 
 	QuickRoll = not QuickRoll
-	PlayerGui.QuickRoll.Text =	QuickRoll and "QuickRoll : On"	or "QuickRoll : Off"
+
+	PlayerGui.QuickRoll.Text =	QuickRoll and "QuickRoll : On"		or "QuickRoll : Off"
 
 	UISounds.Success_Sound:Play()
 end)
 
 PlayerGui.AutoRoll.MouseButton1Click:Connect(function()
 
+	if Rolling then
+		return
+	end
+
 	AutoRoll = not AutoRoll
-	PlayerGui.AutoRoll.Text = AutoRoll and "AutoRoll : On" or "AutoRoll : Off"
+
+	PlayerGui.AutoRoll.Text =	AutoRoll and "AutoRoll : On"	or "AutoRoll : Off"
 
 	if not AutoRoll then
 		return
@@ -236,6 +387,7 @@ PlayerGui.AutoRoll.MouseButton1Click:Connect(function()
 		while AutoRoll do
 
 			local Success, Error = pcall(function()
+
 				RollAura()
 			end)
 
@@ -246,5 +398,17 @@ PlayerGui.AutoRoll.MouseButton1Click:Connect(function()
 			task.wait(AutoRollDelay)
 		end
 	end)
-        
+end)
+
+----------- [ Warning Buttons ] ----------------
+
+WarningUI.Keep.MouseButton1Click:Connect(function()
+	UISounds.gui_click:Play()
+	CloseWarning()
+	ClientChecks:InvokeServer("EquipThing")
+end)
+
+WarningUI.Remov.MouseButton1Click:Connect(function()
+	UISounds.gui_click:Play()
+	CloseWarning()
 end)
