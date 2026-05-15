@@ -1,5 +1,5 @@
-if not game:IsLoaded() then
-	game.Loaded:Wait()
+if not game:IsLoaded() then --// wait for game to load
+	game.Loaded:Wait() 
 end
 
 ----------- [ Services ] ----------------
@@ -8,8 +8,10 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+-- done on server local MPS = game:GetService("MarketPlaceService") 
 
 ----------- [ Player ] ----------------
+--// define all neccessary variables, like player, etc
 
 local plr = Players.LocalPlayer
 local PlayerGui = script.Parent
@@ -23,9 +25,9 @@ local AuraDisplay = RollingUI:WaitForChild("PSI")
 
 ----------- [ Modules ] ----------------
 
-local ClientModules = ReplicatedStorage:WaitForChild("ClientModules")
-local SummonModule = require(ClientModules:WaitForChild("Summon"))
-local AuraDetails = require(ClientModules:WaitForChild("AuraDetails"))
+local ClientModules = ReplicatedStorage:WaitForChild("ClientModules")  
+local SummonModule = require(ClientModules:WaitForChild("Summon"))  --// rolls for an aura when called
+local AuraDetails = require(ClientModules:WaitForChild("AuraDetails")) --// info on aura's like chance, gradient colors, etc
 
 ----------- [ Sounds ] ----------------
 
@@ -45,19 +47,19 @@ local SkipWarning = Settings:WaitForChild("SkipWarning")
 
 ----------- [ States ] ----------------
 
-local Rolling = false
-local AutoRoll = false
-local QuickRoll = false
-local WarningOpen = false
+local Rolling = false --// is the player correctly rolling
+local AutoRoll = false --// is auto roll on
+local QuickRoll = false --// is quick roll on
+local WarningOpen = false --// is the warning ui open
 
 ----------- [ Config ] ----------------
 
-local FakeRollAmount = 8
-local AutoRollDelay = 0.05
-local BaseSpeed = 1
-local RollCooldown = 1
+local FakeRollAmount = 8 --// how much fake rolls should there be
+local AutoRollDelay = 0.05 --// how much time inbetween each auto roll
+local BaseSpeed = 1 --// how fast should the rolls go by
+local RollCooldown = 1 --// how much of a cooldown should ther ebe
 
-local UIAnimations = {
+local UIAnimations = {  --// roll anim properties
 	RollTweenTime = .125,
 	FadeTime = .2
 }
@@ -65,28 +67,28 @@ local UIAnimations = {
 local DefaultGradient = ColorSequence.new({
 	ColorSequenceKeypoint.new(0, Color3.fromRGB(255,255,255)),
 	ColorSequenceKeypoint.new(1, Color3.fromRGB(255,255,255))
-})
+}) --// if graidnet not found default to this
 
 local PotBoosts = {
 	["Speed Potion I"] = 0.15,
 	["Speed Potion II"] = 0.35,
 	["Speed Potion III"] = 0.5,
-}
+} --// if they have these X effect decrease roll cooldown by X amount
 
 local GearBoosts = {
 	["None"] = 0.05,
 	["Flare Gear"] = 0.15,
 	["Starry Device"] = 4.44,
-}
+} --// if they have these X gear increase roll speed by X amnt
 
 ----------- [ Cache ] ----------------
 
-local AuraCache = {}
+local AuraCache = {} --// gradient cache 
 
 ----------- [ Functions ] ----------------
 
---// reusable tween function
-local function CreateTween(Object, Time, Properties, Style, Direction)
+--// simple reusable tween function
+local function CreateTween(Object, Time, Properties, Style, Direction) 
 
 	local Tween = TweenService:Create(
 		Object,
@@ -103,7 +105,7 @@ local function CreateTween(Object, Time, Properties, Style, Direction)
 	return Tween
 end
 
---// caches aura gradients for faster access
+--// caches aura gradients for faster access so i dont have to go through  each of them each time
 local function BuildAuraCache()
 
 	local AuraFolder = ReplicatedStorage:WaitForChild("Auras")
@@ -120,21 +122,21 @@ BuildAuraCache()
 
 --// gets aura ui gradient
 local function GetAuraGradient(AuraName)
-	return AuraCache[AuraName] or DefaultGradient
+	return AuraCache[AuraName] or DefaultGradient --// gets aura gradietn frmo cache or defaults
 end
 
---// calculates total roll speed
+--// calculates the total roll speed
 local function GetRollSpeed()
 	local Speed = BaseSpeed
 	
-	for PotionName, Boost in PotBoosts do
+	for PotionName, Boost in PotBoosts do --// go through anll effects and see if player has it
 		if EffectsFolder:FindFirstChild(PotionName) then
-			Speed += Boost
+			Speed += Boost --// if effect found increase speed by x amt
 		end
 	end
 
 	local EquippedGear = plr:WaitForChild("gear").Value
-	Speed += GearBoosts[EquippedGear] or 0
+	Speed += GearBoosts[EquippedGear] or 0 --// increase total speed by x again for gear used
 
 	return Speed
 end
@@ -164,7 +166,7 @@ local function ResetRollUI()
 	RollingUI.Visible = false
 end
 
---// creates cooldown visual effect
+--// creates cooldown visual effect to roll ui
 local function CreateCooldownVisual()
 
 	local CooldownFrame = Instance.new("Frame")
@@ -200,9 +202,9 @@ local function OpenWarning(Type, AuraName)
 	local Gradient = GetAuraGradient(AuraName)
 
 	WarningUI.Visible = true
-	WarningUI.UIGradient.Color = Gradient
+	WarningUI.UIGradient.Color = Gradient --// set gradient based on aura cooler for coolness
 
-	if Type == "Skip" then
+	if Type == "Skip" then  --// if its a skip/equip warning
 		WarningUI.Keep.Text = "Keep"
 		WarningUI.Remov.Text = "Skip"
 
@@ -221,7 +223,8 @@ local function CloseWarning()
 	WarningUI.Visible = false
 end
 
---// displays current rolled aura
+--// displays current rolled aura based on things like its name, chance, and speed tod isplay at
+
 local function ShowAura(AuraName, AuraChance, Speed)
 
 	PlayRollSound(Speed)
@@ -229,7 +232,7 @@ local function ShowAura(AuraName, AuraChance, Speed)
 	local Gradient = GetAuraGradient(AuraName)
 
 	AuraDisplay.AuraName.Text = AuraName
-	AuraDisplay.Chance.Text = `1 in {AuraChance}`
+	AuraDisplay.Chance.Text = `1 in {AuraChance}` 
 
 	AuraDisplay.AuraName.UIGradient.Color = Gradient
 	AuraDisplay.Chance.UIGradient.Color = Gradient
@@ -261,20 +264,19 @@ end
 
 local function RollAura()
 
-	if Rolling then
+	if Rolling then --// if already rolling stop
 		return
 	end
 
-	if not PlayerGui.Enabled then
+	if not PlayerGui.Enabled then --// if ui isnt enabled stop
 		return
 	end
 
 	Rolling = true
 
 	Buttons.Visible = false
-
-	RollingUI.Visible = true
-	WarningUI.Visible = false
+	RollingUI.Visible = true --// set ui up for roll
+	WarningUI.Visible = false 
 
 	local Speed = GetRollSpeed()
 
@@ -289,25 +291,17 @@ local function RollAura()
 	--// actual server-sided aura roll(what the player actualled rollyed)
 	local AuraName, AuraChance = ClientChecks:InvokeServer("GetRoll")
 	ShowAura(AuraName, AuraChance, Speed)
-
-	--// random quickroll ownership verification to see if they acc own it
-	if QuickRoll and math.random(670) == 1 then
-		local Valid = ClientChecks:InvokeServer("GRCD")
-
-		if not Valid then
-			plr:Kick("QuickRoll Verification Failed")
-		end
-	end
-
+	
 	--// auto equip logic
-	if AutoEquip.Value >= AuraChance then
-		if InventoryFull() then
+	
+	if AutoEquip.Value >= AuraChance then --// if autoequip value >= chance cotinue
+		if InventoryFull() then --// if inventory is full show equip warning
 			OpenWarning("Equip", AuraName)
 		else
-			ClientChecks:InvokeServer("EquipThing")
+			ClientChecks:InvokeServer("EquipThing") --// equip the aura
 		end
 	end
-
+	
 	--// fade ui out after roll
 	CreateTween(
 		AuraDisplay,
@@ -336,7 +330,7 @@ end)
 
 PlayerGui.QuickRoll.MouseButton1Click:Connect(function()
 
-	UISounds.gui_click:Play()
+	UISounds.gui_click:Play()	
 
 	--// checks if player owns quickroll
 	local HasQuickRoll = ClientChecks:InvokeServer("GRCD")
@@ -359,14 +353,14 @@ PlayerGui.AutoRoll.MouseButton1Click:Connect(function()
 
 	AutoRoll = not AutoRoll --// if on off if off on
 
-	PlayerGui.AutoRoll.Text =	AutoRoll and "AutoRoll : On"	or "AutoRoll : Off"
+	PlayerGui.AutoRoll.Text =	AutoRoll and "AutoRoll : On"	or "AutoRoll : Off" --// true and On or off
 
-	if not AutoRoll then
+	if not AutoRoll then --// if its off dont continue
 		return
 	end
 
 	task.spawn(function()
-		while AutoRoll do
+		while AutoRoll do --// while auto roll is true constantly roll for auras while waiting the delay time
 
 			local Success, Error = pcall(function() --// if this function fails for whatever reason
 				RollAura()  
